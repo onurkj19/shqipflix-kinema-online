@@ -22,8 +22,8 @@ export default function Login() {
     setLoading(true);
 
     try {
-      const success = await login(email, password);
-      if (success) {
+      const { error } = await login(email, password);
+      if (!error) {
         toast({
           title: "Mirësevini në ShqipFlix!",
           description: "Ju keni hyrë me sukses në llogarinë tuaj.",
@@ -32,7 +32,9 @@ export default function Login() {
       } else {
         toast({
           title: "Gabim në hyrje",
-          description: "Email ose fjalëkalimi është i gabuar.",
+          description: error === 'Invalid login credentials' 
+            ? "Email ose fjalëkalimi është i gabuar."
+            : error,
           variant: "destructive",
         });
       }
@@ -58,11 +60,10 @@ export default function Login() {
           <p className="text-gray-400 mt-2">Hyni në llogarinë tuaj</p>
         </div>
 
-        {/* Demo Credentials */}
+        {/* Info */}
         <div className="bg-gray-900 p-4 rounded-lg mb-6 border border-gray-700">
-          <h3 className="text-white font-semibold mb-2">Kredenciale Demo:</h3>
-          <p className="text-sm text-gray-300">Admin: admin@shqipflix.com / admin123</p>
-          <p className="text-sm text-gray-300">User: user@test.com / test123</p>
+          <h3 className="text-white font-semibold mb-2">Regjistrohu për akses:</h3>
+          <p className="text-sm text-gray-300">Krijo një llogari të re për të pasur akses në platformë</p>
         </div>
 
         {/* Login Form */}

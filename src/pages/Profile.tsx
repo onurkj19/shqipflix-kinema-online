@@ -11,14 +11,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 
 export default function Profile() {
-  const { user, logout } = useAuth();
+  const { user, profile, logout } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   
   // Profile form state
   const [profileData, setProfileData] = useState({
-    emri: user?.emri || '',
+    emri: profile?.display_name || '',
     email: user?.email || '',
     currentPassword: '',
     newPassword: '',

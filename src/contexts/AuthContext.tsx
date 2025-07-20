@@ -1,19 +1,28 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { User, Session } from '@supabase/supabase-js';
+import { supabase } from '@/integrations/supabase/client';
 
-interface User {
+interface Profile {
   id: string;
-  email: string;
-  emri: string;
-  isAdmin?: boolean;
-  isSubscribed?: boolean;
+  user_id: string;
+  display_name: string | null;
+  avatar_url: string | null;
+  subscription_status: string;
+}
+
+interface UserRole {
+  role: 'admin' | 'user';
 }
 
 interface AuthContextType {
   user: User | null;
-  login: (email: string, password: string) => Promise<boolean>;
-  register: (email: string, password: string, emri: string) => Promise<boolean>;
-  logout: () => void;
+  session: Session | null;
+  profile: Profile | null;
+  isAdmin: boolean;
+  login: (email: string, password: string) => Promise<{ error: string | null }>;
+  register: (email: string, password: string, displayName: string) => Promise<{ error: string | null }>;
+  logout: () => Promise<void>;
   loading: boolean;
 }
 
@@ -21,88 +30,126 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    // Check for existing session
-    const token = localStorage.getItem('shqipflix_token');
-    const userData = localStorage.getItem('shqipflix_user');
-    
-    if (token && userData) {
-      try {
-        setUser(JSON.parse(userData));
-      } catch (error) {
-        console.error('Error parsing user data:', error);
-        localStorage.removeItem('shqipflix_token');
-        localStorage.removeItem('shqipflix_user');
+  // Fetch user profile and role
+  const fetchUserData = async (userId: string) => {
+    try {
+      // Fetch profile
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('user_id', userId)
+        .single();
+
+      if (profileData) {
+        setProfile(profileData);
       }
+
+      // Check if user is admin
+      const { data: roleData } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', userId)
+        .eq('role', 'admin')
+        .single();
+
+      setIsAdmin(!!roleData);
+    } catch (error) {
+      console.error('Error fetching user data:', error);
     }
-    setLoading(false);
+  };
+
+  useEffect(() => {
+    // Set up auth state listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        setSession(session);
+        setUser(session?.user ?? null);
+        
+        if (session?.user) {
+          await fetchUserData(session.user.id);
+        } else {
+          setProfile(null);
+          setIsAdmin(false);
+        }
+        setLoading(false);
+      }
+    );
+
+    // Check for existing session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      
+      if (session?.user) {
+        fetchUserData(session.user.id);
+      } else {
+        setLoading(false);
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  const login = async (email: string, password: string): Promise<boolean> => {
+  const login = async (email: string, password: string): Promise<{ error: string | null }> => {
     try {
-      // Mock login - in real app, this would call your backend
-      if (email === 'admin@shqipflix.com' && password === 'admin123') {
-        const adminUser = {
-          id: '1',
-          email: 'admin@shqipflix.com',
-          emri: 'Administrator',
-          isAdmin: true,
-          isSubscribed: true
-        };
-        setUser(adminUser);
-        localStorage.setItem('shqipflix_token', 'mock_admin_token');
-        localStorage.setItem('shqipflix_user', JSON.stringify(adminUser));
-        return true;
-      } else if (email === 'user@test.com' && password === 'test123') {
-        const testUser = {
-          id: '2',
-          email: 'user@test.com',
-          emri: 'Test User',
-          isAdmin: false,
-          isSubscribed: true
-        };
-        setUser(testUser);
-        localStorage.setItem('shqipflix_token', 'mock_user_token');
-        localStorage.setItem('shqipflix_user', JSON.stringify(testUser));
-        return true;
-      }
-      return false;
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      return { error: error?.message || null };
     } catch (error) {
       console.error('Login error:', error);
-      return false;
+      return { error: 'Ka ndodhur një gabim gjatë hyrjes' };
     }
   };
 
-  const register = async (email: string, password: string, emri: string): Promise<boolean> => {
+  const register = async (email: string, password: string, displayName: string): Promise<{ error: string | null }> => {
     try {
-      // Mock registration - in real app, this would call your backend
-      const newUser = {
-        id: Date.now().toString(),
+      const redirectUrl = `${window.location.origin}/`;
+      
+      const { error } = await supabase.auth.signUp({
         email,
-        emri,
-        isAdmin: false,
-        isSubscribed: false
-      };
-      setUser(newUser);
-      localStorage.setItem('shqipflix_token', `mock_token_${Date.now()}`);
-      localStorage.setItem('shqipflix_user', JSON.stringify(newUser));
-      return true;
+        password,
+        options: {
+          emailRedirectTo: redirectUrl,
+          data: {
+            display_name: displayName
+          }
+        }
+      });
+
+      return { error: error?.message || null };
     } catch (error) {
       console.error('Registration error:', error);
-      return false;
+      return { error: 'Ka ndodhur një gabim gjatë regjistrimit' };
     }
   };
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem('shqipflix_token');
-    localStorage.removeItem('shqipflix_user');
+  const logout = async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, loading }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      session, 
+      profile, 
+      isAdmin, 
+      login, 
+      register, 
+      logout, 
+      loading 
+    }}>
       {children}
     </AuthContext.Provider>
   );

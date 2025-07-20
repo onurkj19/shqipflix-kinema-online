@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 
 export default function Navbar() {
-  const { user, logout } = useAuth();
+  const { user, profile, isAdmin, logout } = useAuth();
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -78,7 +78,7 @@ export default function Navbar() {
               <DropdownMenuTrigger asChild>
                 <button className="flex items-center space-x-2 text-white hover:text-red-400 transition-colors">
                   <User className="w-5 h-5" />
-                  <span className="hidden sm:inline">{user?.emri}</span>
+                  <span className="hidden sm:inline">{profile?.display_name || user?.email}</span>
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent className="bg-black/90 border-gray-700 text-white">
@@ -88,7 +88,7 @@ export default function Navbar() {
                     <span>Profili</span>
                   </Link>
                 </DropdownMenuItem>
-                {user?.isAdmin && (
+                {isAdmin && (
                   <DropdownMenuItem asChild>
                     <Link to="/admin" className="flex items-center space-x-2 text-red-400">
                       <Settings className="w-4 h-4" />

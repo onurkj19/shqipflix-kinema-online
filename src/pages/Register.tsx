@@ -43,17 +43,19 @@ export default function Register() {
     setLoading(true);
 
     try {
-      const success = await register(email, password, emri);
-      if (success) {
+      const { error } = await register(email, password, emri);
+      if (!error) {
         toast({
           title: "Regjistrimi i suksesshëm!",
-          description: "Llogaria juaj është krijuar me sukses.",
+          description: "Kontrolloni emailin tuaj për konfirmim.",
         });
-        navigate('/abonohu');
+        navigate('/hyr');
       } else {
         toast({
           title: "Gabim në regjistrim",
-          description: "Ka ndodhur një gabim gjatë regjistrimit.",
+          description: error === 'User already registered' 
+            ? "Kjo adresë email është tashmë e regjistruar."
+            : error,
           variant: "destructive",
         });
       }

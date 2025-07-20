@@ -8,7 +8,7 @@ interface ProtectedRouteProps {
 }
 
 export default function ProtectedRoute({ children, adminOnly = false }: ProtectedRouteProps) {
-  const { user, loading } = useAuth();
+  const { user, profile, isAdmin, loading } = useAuth();
 
   if (loading) {
     return (
@@ -22,13 +22,12 @@ export default function ProtectedRoute({ children, adminOnly = false }: Protecte
     return <Navigate to="/hyr" replace />;
   }
 
-  if (adminOnly && !user.isAdmin) {
+  if (adminOnly && !isAdmin) {
     return <Navigate to="/shfleto" replace />;
   }
 
-  if (!user.isSubscribed && !adminOnly) {
-    return <Navigate to="/abonohu" replace />;
-  }
+  // For now, allow all authenticated users access
+  // Later you can check subscription status: profile?.subscription_status === 'premium'
 
   return <>{children}</>;
 }
